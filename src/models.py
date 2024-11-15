@@ -1,6 +1,6 @@
 ##
 import numpy as np
-from models_setup import _set_nodes, _set_nodes_delayed
+from .models_setup import _set_nodes, _set_nodes_delayed
 
 
 def _loop(carry, t):
