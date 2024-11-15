@@ -3,82 +3,54 @@ import numpy as np
 from .models_setup import _set_nodes
 
 
-def KuramotoOscillators(A: np.ndarray, f: float, fs: float, eta: float, T: float):
+def _loop(carry, t):
 
-    # Call setup to initialize nodes and scale A and D matrices
-    N, A, omegas, phases_history, dt = _set_nodes(A, f, fs)
+    N, A, omegas, eta, coupling, phases_history = carry
 
-    # Rescale noise with \sqrt{dt}
-    eta = np.sqrt(dt) * eta
+    phases_t = phases_history.squeeze().copy()
 
-    # Stored phases of each node
-    phases = np.zeros((N, T))
+    phase_differences = phases_history - phases_t
+    phase_differences = np.sin(-phase_differences)
 
-    def _loop(carry, t):
+    # Input to each node
+    Input = (A * phase_differences * coupling[t]).sum(axis=1)
 
-        phases_history = carry
-        if t <= 1:
-            print(phases_history.shape)
-
-        phases_t = phases_history.squeeze().copy()
-
-        phase_differences = phases_history - phases_t
-        phase_differences = np.sin(-phase_differences)
-
-        # Input to each node
-        Input = (A * phase_differences).sum(axis=1)
-
-        phases_history = (
-            phases_t + omegas + Input + eta * np.random.normal(0, 1, size=N)
-        )
-        return phases_history.reshape(N, 1)
-
-    for t in range(T):
-        phases_history = _loop(phases_history, t)
-        phases[:, t] = phases_history[:, 0]
-
-    phases_fft = np.fft.fft(np.sin(phases), n=T, axis=1)
-    TS = np.real(np.fft.ifft(phases_fft))
-
-    return TS, phases
+    phases_history = phases_t + omegas + Input + eta * np.random.normal(0, 1, size=N)
+    return phases_history.reshape(N, 1)
 
 
-def KuramotoOscillators_timevar(
-    A: np.ndarray, f: float, fs: float, eta: float, T: float, coupling: np.ndarray
+def KuramotoOscillators(
+    A: np.ndarray,
+    f: float,
+    fs: float,
+    eta: float,
+    T: float,
+    coupling: np.ndarray = None,
 ):
 
+    if not isinstance(coupling, (list, tuple, np.ndarray)):
+        coupling = np.ones(T)
+    else:
+        coupling = np.asarray(coupling)
+
     # Call setup to initialize nodes and scale A and D matrices
     N, A, omegas, phases_history, dt = _set_nodes(A, f, fs)
 
     # Rescale noise with \sqrt{dt}
     eta = np.sqrt(dt) * eta
 
-    coupling = np.asarray(coupling)
-
     # Stored phases of each node
     phases = np.zeros((N, T))
 
-    def _loop(carry, t):
-
-        phases_history = carry
-
-        phases_t = phases_history.squeeze().copy()
-
-        phase_differences = phases_history - phases_t
-        phase_differences = np.sin(-phase_differences)
-
-        # Input to each node
-        Input = (A * phase_differences * coupling[t]).sum(axis=1)
-        print(Input)
-
-        phases_history = (
-            phases_t + omegas + Input + eta * np.random.normal(0, 1, size=N)
-        )
-        return phases_history.reshape(N, 1)
+    carry = (N, A, omegas, eta, coupling, phases_history)
 
     for t in range(T):
-        phases_history = _loop(phases_history, t)
+        # Update
+        phases_history = _loop(carry, t)
+        # Store
         phases[:, t] = phases_history[:, 0]
+        # New carry
+        carry = (N, A, omegas, eta, coupling, phases_history)
 
     phases_fft = np.fft.fft(np.sin(phases), n=T, axis=1)
     TS = np.real(np.fft.ifft(phases_fft))
@@ -108,7 +80,7 @@ if __name__ == "__main__":
     K = 10  # Global coupling strength
 
     # Generate random placeholder data for TS with shape (3, Npoints)
-    TS, dt_save = KuramotoOscillators_timevar(K * C, f, fs, 3.5, T, np.ones(T))
+    TS, dt_save = KuramotoOscillators(K * C, f, fs, 3.5, T, np.ones(T) * 100)
 
     # Extract time series data
     x, y, z = TS[0], TS[1], TS[2]

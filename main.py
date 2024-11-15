@@ -5,7 +5,7 @@ import xarray as xr
 from mne.time_frequency.tfr import tfr_array_morlet
 from hoi.core import get_mi
 from frites.core import copnorm_nd
-from src.models import KuramotoOscillators_timevar
+from src.models import KuramotoOscillators
 
 # Parameters
 ntrials = 200
@@ -37,7 +37,7 @@ CS = np.linspace(1, 100, ntrials)
 # Placeholder simulation loop with random data
 for itrials in range(ntrials):
     # Generate random placeholder data for TS with shape (3, Npoints)
-    TS, dt_save = KuramotoOscillators_timevar(
+    TS, dt_save = KuramotoOscillators(
         K * C, f, fsamp, 3.5, Npoints, CS[itrials] * coupling
     )
 
