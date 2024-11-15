@@ -5,7 +5,7 @@ import xarray as xr
 from mne.time_frequency.tfr import tfr_array_morlet
 from frites.core import gcmi_nd_cc
 
-###
+##
 
 
 def _setup_nodes(A: np.ndarray, D: np.ndarray, f: float, fs: float):
@@ -47,7 +47,7 @@ def _setup_nodes(A: np.ndarray, D: np.ndarray, f: float, fs: float):
     # Integration time-step
     dt = 1 / fs
 
-    # Make sure they are arrays
+    # Make sure elays(C==0)=0;they are arrays
     A = np.asarray(A)
     D = np.asarray(D)
 
@@ -61,7 +61,7 @@ def _setup_nodes(A: np.ndarray, D: np.ndarray, f: float, fs: float):
         f = np.asarray(f)
 
     # Zero delay if there is no connection and convert to time-step
-    D = (D * (A > 0) / dt).astype(int)
+    D = np.round(D * (A > 0) / dt).astype(int)
 
     # Maximum delay
     max_delay = int(np.max(D) + 1)
@@ -75,7 +75,7 @@ def _setup_nodes(A: np.ndarray, D: np.ndarray, f: float, fs: float):
     A = A * dt
 
     # Randomly initialize phases and keeps it only up to max delay
-    phases = 2 * np.pi * np.random.rand(N) + omegas * np.ones(
+    phases = 2 * np.pi * np.random.rand(N, 1) + omegas * np.ones(
         (N, max_delay)
     ) * np.arange(max_delay)
 
@@ -86,11 +86,21 @@ def _setup_nodes(A: np.ndarray, D: np.ndarray, f: float, fs: float):
 
 
 def Simulate_Kuramoto_Delay(
-    A: np.ndarray, D: np.ndarray, f: float, fs: float, eta: float, T: float, icoup
+    A: np.ndarray,
+    D: np.ndarray,
+    f: float,
+    fs: float,
+    eta: float,
+    T: float,
+    icoup: np.ndarray,
+    md: float = 0,
 ):
 
     # Call setup to initialize nodes and scale A and D matrices
     N, A, D, omegas, phases_history, dt = _setup_nodes(A, D, f, fs)
+
+    if md == 0:
+        D = D * md
 
     eta = np.sqrt(dt) * eta
 
@@ -113,15 +123,16 @@ def Simulate_Kuramoto_Delay(
             I_n = 0  #  Initialize total coupling received into node n
             for p in range(N):
                 if A[n, p]:
-                    I_n = I_n + A[n, p] * np.sin(
+                    I_n = I_n + icoup[t] * A[n, p] * np.sin(
                         phases_history[p, D[n, p]] - phases_t[n]
                     )
             Input[n] = I_n
 
-        phases_history[:, :-1] = phases_history[:, 1:]
+        if md > 0:
+            phases_history[:, :-1] = phases_history[:, 1:]
 
         phases_history[:, -1] = (
-            phases_t + omegas + icoup[t] * Input + eta * np.random.normal(0, 1, size=N)
+            phases_t + omegas + Input + eta * np.random.normal(0, 1, size=N)
         )
 
         # phases[:, t] = phases_history[:, -1]
@@ -150,11 +161,11 @@ data = np.zeros((C.shape[1], ntrials, T))
 
 # Derived parameters
 N = C.shape[0]
-D = np.ones((N, N)) / 1000  # Fixed delay matrix divided by 1000
+D = np.zeros((N, N)) / 1000  # Fixed delay matrix divided by 1000
 C = C / np.mean(C[np.ones((N, N)) - np.eye(N) > 0])
 f = 40  # Node natural frequency in Hz
 MD = 0.0  # Mean Delay in seconds
-K = 50  # Global coupling strength
+K = 10  # Global coupling strength
 s = 8 / (2 * np.pi * f)
 
 # Coupling time window
@@ -173,7 +184,7 @@ CS = np.linspace(1, 100, ntrials)
 for itrials in tqdm(range(ntrials)):
     # Generate random placeholder data for TS with shape (3, Npoints)
     TS, dt_save = Simulate_Kuramoto_Delay(
-        K * C * CS[itrials], D, f, fs, 3.5, T, coupling
+        K * C, D, f, fs, 3.5, T, coupling * CS[itrials]
     )
 
     # Extract time series data
