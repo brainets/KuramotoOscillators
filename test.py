@@ -1,7 +1,7 @@
 ### Imports
 
-import matplotlib.pyplot as plt
 import scipy
+import matplotlib.pyplot as plt
 import jax
 import numpy as np
 import xarray as xr

@@ -57,7 +57,7 @@ def _set_nodes(A: np.ndarray, f: float, fs: float):
     return N, A, omegas, phases, dt
 
 
-def _setup_nodes_delayed(A: np.ndarray, D: np.ndarray, f: float, fs: float):
+def _set_nodes_delayed(A: np.ndarray, D: np.ndarray, f: float, fs: float):
     """
     Setup nodes for Kuramoto simulation with time delays.
 
