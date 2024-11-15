@@ -2,6 +2,10 @@
 import numpy as np
 from .models_setup import _set_nodes, _set_nodes_delayed
 
+"""
+FUNCTIONS LOOP MIGHT BE COMPILED WITH JAX SCAN LATER
+"""
+
 
 def _loop(carry, t):
 
@@ -24,6 +28,10 @@ def _loop_delayed(carry, t):
     N, A, D, omegas, eta, coupling, phases_history = carry
 
     phases_t = phases_history[:, -1].copy()
+
+    """
+    THE IDEA IS TO VECTORIZE THIS
+    """
 
     def _return_phase_differences(n, d):
         phase_differences = phases_history[np.indices(d.shape)[0], d - 1] - phases_t[n]

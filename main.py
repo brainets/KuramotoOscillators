@@ -38,7 +38,7 @@ CS = np.linspace(1, 100, ntrials)
 for itrials in range(ntrials):
     # Generate random placeholder data for TS with shape (3, Npoints)
     TS, dt_save = KuramotoOscillators(
-        K * C, f, fsamp, 3.5, Npoints, CS[itrials] * coupling
+        K * C, f, fsamp, 3.5, Npoints, None, CS[itrials] * coupling
     )
 
     # Extract time series data
@@ -159,7 +159,7 @@ ax = plt.subplot()
 # Plot single-trial and time-frequency MI
 mi = xr.DataArray(mif_e3, dims=("times", "freqs"), coords=(times, freqs))
 # Plot trial-average time-frequency MI
-mi.plot(x="times", y="freqs", cmap="viridis", vmin=0)
+mi.plot(x="times", y="freqs", cmap="viridis", vmin=0, vmax=0.5)
 # mi.plot.title('ciao')
 ax.set_title(
     "Coherence between node 2 and 3 using Frequency-domain MI (Kuramoto Chain)"
@@ -172,7 +172,7 @@ ax = plt.subplot()
 # Plot single-trial and time-frequency MI
 mi = xr.DataArray(mif_e123, dims=("times", "freqs"), coords=(times, freqs))
 # Plot trial-average time-frequency MI
-mi.plot(x="times", y="freqs", cmap="viridis", vmin=0)
+mi.plot(x="times", y="freqs", cmap="viridis", vmin=0, vmax=0.5)
 # mi.plot.title('ciao')
 ax.set_title("Total MI I(e1, e2; coupling)")
 ax.set_xlabel("Time (samples)")
@@ -183,7 +183,7 @@ ax = plt.subplot()
 # Plot single-trial and time-frequency MI
 mi = xr.DataArray(red, dims=("times", "freqs"), coords=(times, freqs))
 # Plot trial-average time-frequency MI
-mi.plot(x="times", y="freqs", cmap="viridis", vmin=0)
+mi.plot(x="times", y="freqs", cmap="viridis", vmin=0, vmax=0.5)
 # mi.plot.title('ciao')
 ax.set_title("Redundancy")
 ax.set_xlabel("Time (s)")
@@ -194,7 +194,7 @@ ax = plt.subplot()
 # Plot single-trial and time-frequency MI
 mi = xr.DataArray(syn, dims=("times", "freqs"), coords=(times, freqs))
 # Plot trial-average time-frequency MI
-mi.plot(x="times", y="freqs", cmap="viridis", vmin=0)
+mi.plot(x="times", y="freqs", cmap="viridis", vmin=0, vmax=0.5)
 # mi.plot.title('ciao')
 ax.set_title("Synergy")
 ax.set_xlabel("Time (s)")
