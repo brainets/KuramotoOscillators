@@ -20,7 +20,7 @@ def KuramotoOscillators(A: np.ndarray, f: float, fs: float, eta: float, T: float
 
         phases_t = phases_history.squeeze().copy()
 
-        phase_differences = phases_history - phases_t.squeeze()
+        phase_differences = phases_history - phases_t
         phase_differences = -np.sin(phase_differences)
 
         # Input to each node
