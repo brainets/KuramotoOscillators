@@ -7,25 +7,34 @@ FUNCTIONS LOOP MIGHT BE COMPILED WITH JAX SCAN LATER
 """
 
 
-def _loop(carry, t):
+def _ode(Z: np.complex128, a: float, w: float):
+    return Z * (a + 1j * w - np.abs(Z) ** 2)
 
-    N, A, omegas, eta, coupling, phases_history = carry
+
+def _loop(carry, t, dt):
+
+    N, A, Iext, omegas, a, eta, phases_history = carry
 
     phases_t = phases_history.squeeze().copy()
 
     phase_differences = phases_history - phases_t
-    phase_differences = np.sin(-phase_differences)
 
     # Input to each node
-    Input = (A * phase_differences * coupling[t]).sum(axis=1)
+    Input = (A * phase_differences).sum(axis=1) + Iext[:, t] * np.exp(
+        1j * np.angle(phases_t)
+    )
 
-    phases_history = phases_t + omegas + Input + eta * np.random.normal(0, 1, size=N)
+    phases_history = (
+        phases_t
+        + dt * (_ode(phases_t, a, omegas) + Input)
+        + eta * (np.random.normal(size=N) + 1j * np.random.normal(size=N))
+    )
     return phases_history.reshape(N, 1)
 
 
-def _loop_delayed(carry, t):
+def _loop_delayed(carry, t, dt):
 
-    N, A, D, omegas, eta, coupling, phases_history = carry
+    N, A, D, omegas, a, eta, phases_history = carry
 
     phases_t = phases_history[:, -1].copy()
 
@@ -34,21 +43,22 @@ def _loop_delayed(carry, t):
     """
 
     def _return_phase_differences(n, d):
-        phase_differences = phases_history[np.indices(d.shape)[0], d - 1] - phases_t[n]
-        return np.sin(-phase_differences)
+        return phases_history[np.indices(d.shape)[0], d - 1] * phases_t[n]
 
     phase_differences = np.stack(
         [_return_phase_differences(n, d) for n, d in enumerate(D)]
     )
 
     # Input to each node
-    Input = (A * phase_differences * coupling[t]).sum(axis=1)
+    Input = (A * phase_differences).sum(axis=1)
 
     # Slide History only if the delays are > 0
     phases_history[:, :-1] = phases_history[:, 1:]
 
-    phases_history[:, -1] = (
-        phases_t + omegas + Input + eta * np.random.normal(0, 1, size=N)
+    phases_history = (
+        phases_t
+        + dt * (_ode(phases_t, a, omegas) + Input)[:, None]
+        + eta * (np.random.normal(size=N) + 1j * np.random.normal(size=N))
     )
 
     return phases_history
@@ -57,42 +67,36 @@ def _loop_delayed(carry, t):
 def KuramotoOscillators(
     A: np.ndarray,
     f: float,
+    a: float,
     fs: float,
     eta: float,
     T: float,
     D: np.ndarray = None,
-    coupling: np.ndarray = None,
+    Iext: np.ndarray = None,
 ):
 
-    if not isinstance(coupling, (list, tuple, np.ndarray)):
-        coupling = np.ones(T)
-    else:
-        coupling = np.asarray(coupling)
-
     if isinstance(D, np.ndarray) and D.any():
-        N, A, D, omegas, phases_history, dt = _set_nodes_delayed(A, D, f, fs)
-        carry = [N, A, D, omegas, eta * np.sqrt(dt), coupling, phases_history]
+        N, A, D, omegas, phases_history, dt, a = _set_nodes_delayed(A, D, f, fs, a)
+        carry = [N, A, D, omegas, a, eta * np.sqrt(dt), phases_history]
         _loop_fun = _loop_delayed
     else:
-        N, A, omegas, phases_history, dt = _set_nodes(A, f, fs)
-        carry = [N, A, omegas, eta * np.sqrt(dt), coupling, phases_history]
+        N, A, omegas, phases_history, dt, a = _set_nodes(A, f, fs, a)
+        carry = [N, A, Iext, omegas, a, eta * np.sqrt(dt), phases_history]
         _loop_fun = _loop
 
     # Stored phases of each node
-    phases = np.zeros((N, T))
+    phases = np.zeros((N, T), dtype=np.complex128)
 
     for t in range(T):
         # Update
-        phases_history = _loop_fun(carry, t)
+        phases_history = _loop_fun(carry, t, dt)
+        # print(phases_history.shape)
         # Store
         phases[:, t] = phases_history[:, -1]
         # New carry only phases history changes
         carry[-1] = phases_history
 
-    phases_fft = np.fft.fft(np.sin(phases), n=T, axis=1)
-    TS = np.real(np.fft.ifft(phases_fft))
-
-    return TS, phases
+    return phases, True
 
 
 ###

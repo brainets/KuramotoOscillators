@@ -25,35 +25,25 @@ eta = 4.0
 ## Simulation parameters
 
 ntrials = 200
-fsamp = 600
-time = np.arange(-0.5, 1, 1 / fsamp)
+fsamp = 10000
+time = np.arange(-2, 2, 1 / fsamp)
+beta = 1
 Npoints = len(time)
 # Convert to timesteps
 D = (D * fsamp).astype(int)
 
-f = 60  # np.linspace(20, 60, Nareas)[::-1]  # Node natural frequency in Hz
+f = 40  # np.linspace(20, 60, Nareas)[::-1]  # Node natural frequency in Hz
 
-muee = 10
-flnMat = muee * (1 + eta * h) * flnMat
+muee = 1
+flnMat = muee * (1 + eta * h[:, None]) * flnMat
 
-
-s = 8 / (2 * np.pi * f)
-time_start = 0
-time_end = 0.4
-timestim = time[(time > time_start) & (time < time_end)] - (time_end - time_start) / 2
-ind = np.where((time > time_start) & (time < time_end))[0]
-gaussian = np.exp(-(timestim**2) / (2 * s**2))
-coupling = np.zeros_like(time)
-coupling[ind] = gaussian
-
-# Coupling strength array (linearly spaced from 1 to 100)
-CS = np.linspace(1, 100, ntrials)
-
+Iext = np.zeros((Nareas, Npoints))
+Iext[0, (time > 0) & (time < 0.4)] = 1
 
 data = []
 for n in tqdm(range(ntrials)):
     temp, dt_save = KuramotoOscillators(
-        flnMat, f, fsamp, 15.0, Npoints, D, CS[n] * coupling
+        flnMat, f, -5.0, fsamp, beta, Npoints, None, ((n % 4) + 1) * Iext
     )
     data += [temp]
 
@@ -96,31 +86,35 @@ area_names = [
 ]
 
 data = xr.DataArray(
-    data,
+    data[..., ::10],
     dims=("trials", "roi", "times"),
-    coords=(range(ntrials), area_names, time),
+    coords=((np.arange(ntrials)) % 4 + 1, area_names, time[::10]),
 )
 
 ## Plot
 
+data = data.sel(times=slice(-0.2, 2))
+
 
 z_data = (data - data.mean("times")) / data.std("times")
 for i in range(Nareas):
-    plt.plot(z_data[-1].times, z_data[10].values[i] + (i + 10))
+    plt.plot(z_data[-1].times, z_data[-1].values[i].real + (i * 3))
 
 
 plt.show()
 
+##
+
 plt.subplot(1, 2, 1)
-CC = np.corrcoef(data[0])
-plt.imshow(CC, cmap="RdBu_r", vmin=-0.1, vmax=0.1, origin="lower")
+CC = np.corrcoef(data[0].real)
+plt.imshow(CC, cmap="hot_r", vmin=0, vmax=0.5, origin="lower")
 plt.yticks(range(Nareas), data.roi.values)
 plt.xticks(range(Nareas), data.roi.values, rotation=90)
 plt.colorbar()
 
 plt.subplot(1, 2, 2)
-CC = np.corrcoef(data[-1])
-plt.imshow(CC, cmap="RdBu_r", vmin=-0.1, vmax=0.1, origin="lower")
+CC = np.corrcoef(data[-1].real)
+plt.imshow(CC, cmap="hot_r", vmin=0, vmax=0.5, origin="lower")
 plt.yticks(range(Nareas), data.roi.values)
 plt.xticks(range(Nareas), data.roi.values, rotation=90)
 plt.colorbar()
@@ -267,4 +261,3 @@ mi.plot(x="times", y="freqs", cmap="viridis", vmin=0)
 ax.set_title("Synergy")
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Frequency (Hz)")
-plt.show()

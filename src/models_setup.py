@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def _set_nodes(A: np.ndarray, f: float, fs: float):
+def _set_nodes(A: np.ndarray, f: float, fs: float, a: float):
     """
     Setup nodes for Kuramoto simulation without time delays.
 
@@ -15,6 +15,8 @@ def _set_nodes(A: np.ndarray, f: float, fs: float):
         otherwise each oscillator has its own frequency.
     fs: float
         Sampling frequency for simulating the network.
+    a: float
+        Branching parameter
 
     Returns
     -------
@@ -26,6 +28,8 @@ def _set_nodes(A: np.ndarray, f: float, fs: float):
         Initialize container with phase values.
     dt: float
         Integration time-step
+    a: float
+        Branching parameter
     """
 
     # Integration time-step
@@ -43,21 +47,25 @@ def _set_nodes(A: np.ndarray, f: float, fs: float):
     else:
         f = np.asarray(f)
 
-    # Scale with dt to avoid doing it in each time-step
-    # during numerical integation
-    omegas = 2 * np.pi * f * dt
-    A = A * dt
+    # If float convert to array
+    if isinstance(a, float):
+        a = a * np.ones(N)
+    else:
+        a = np.asarray(a)
+
+    omegas = 2 * np.pi * f
 
     # Randomly initialize phases and keeps it only up to max delay
-    phases = 2 * np.pi * np.random.rand(N, 1) + omegas * np.ones((N, 1)) * np.arange(1)
+    # phases = 2 * np.pi * np.random.rand(N, 1) + omegas * np.ones((N, 1)) * np.arange(1)
+    phases = 1e-4 * (np.random.rand(N, 1) + 1j * np.random.rand(N, 1))
 
     # From 0 to 2\pi
-    phases = phases % (2 * np.pi)
+    # phases = phases % (2 * np.pi)
 
-    return N, A, omegas, phases, dt
+    return N, A, omegas, phases, dt, a
 
 
-def _set_nodes_delayed(A: np.ndarray, D: np.ndarray, f: float, fs: float):
+def _set_nodes_delayed(A: np.ndarray, D: np.ndarray, f: float, fs: float, a: float):
     """
     Setup nodes for Kuramoto simulation with time delays.
 
@@ -73,6 +81,8 @@ def _set_nodes_delayed(A: np.ndarray, D: np.ndarray, f: float, fs: float):
         otherwise each oscillator has its own frequency.
     fs: float
         Sampling frequency for simulating the network.
+    a: float
+        Branching parameter
 
     Returns
     -------
@@ -86,13 +96,15 @@ def _set_nodes_delayed(A: np.ndarray, D: np.ndarray, f: float, fs: float):
         Initialize container with phase values.
     dt: float
         Integration time-step
+    a: float
+        Branching parameter
     """
 
     # Check dimensions
     assert A.shape == D.shape
 
     # Call config for nodes without delay
-    N, A, omegas, _, dt = _set_nodes(A, f, fs)
+    N, A, omegas, _, dt, a = _set_nodes(A, f, fs, a)
 
     # Work on the delay matrix
     D = np.asarray(D)
@@ -112,6 +124,6 @@ def _set_nodes_delayed(A: np.ndarray, D: np.ndarray, f: float, fs: float):
     ) * np.arange(max_delay)
 
     # From 0 to 2\pi
-    phases = phases % (2 * np.pi)
+    # phases = phases % (2 * np.pi)
 
-    return N, A, D, omegas, phases, dt
+    return N, A, D, omegas, phases.astype(np.complex128), dt, a
